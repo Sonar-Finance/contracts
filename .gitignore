@@ -1,0 +1,24 @@
+node_modules
+.env
+
+# Hardhat files
+/cache
+/artifacts
+
+# TypeChain files
+/typechain
+/typechain-types
+
+# solidity-coverage files
+/coverage
+/coverage.json
+
+# Hardhat Ignition
+ignition/deployments/**
+!ignition/deployments/**/deployed_addresses.json
+!ignition/deployments/**/
+!ignition/deployments/
+
+# User-specific files
+.env
+.DS_Store
