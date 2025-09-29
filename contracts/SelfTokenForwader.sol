@@ -12,6 +12,7 @@
 
 pragma solidity ^0.8.20;
 import {ISignatureTransfer} from "./interfaces/ISignatureTransfer.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 enum Votes {
     YES,
@@ -20,10 +21,11 @@ enum Votes {
 
 contract SelfTokenForwarder {
     ISignatureTransfer public immutable PERMIT2;
-    address public token_address;
+    IERC20 public token_address;
 
+    mapping(address => uint256) private total_deposits;
     mapping(address => mapping(uint256 => mapping(Votes => uint256)))
-        public user_votes;
+        private user_votes;
 
     event VoteCast(
         address indexed voter,
@@ -32,7 +34,7 @@ contract SelfTokenForwarder {
         uint256 amount
     );
 
-    constructor(ISignatureTransfer _permit2, address _token_address) {
+    constructor(ISignatureTransfer _permit2, IERC20 _token_address) {
         PERMIT2 = _permit2;
         token_address = _token_address;
     }
@@ -50,9 +52,33 @@ contract SelfTokenForwarder {
         // We emit an event to simulate the vote being cast
         emit VoteCast(msg.sender, market_id, vote, amount);
         user_votes[msg.sender][market_id][vote] += amount;
+        total_deposits[msg.sender] += amount;
+    }
 
-        // We return the tokens to the sender
-        // This is a simple forwarder contract for testing purposes
-        // In a real contract, you would have more complex logic here
+    function get_user_deposits(
+        address user
+    ) external view returns (uint256 deposits) {
+        deposits = total_deposits[user];
+    }
+
+    function market_balance(
+        uint256 market_id
+    ) public view returns (uint256 yes, uint256 no) {
+        yes = user_votes[msg.sender][market_id][Votes.YES];
+        no = user_votes[msg.sender][market_id][Votes.NO];
+    }
+
+    function claim_balance(uint256 market_id) external {
+        (uint256 yes, uint256 no) = market_balance(market_id);
+        uint256 total_claiming = yes + no;
+        require(total_claiming > 0, "NothingToClaim");
+        require(
+            token_address.transfer(msg.sender, total_claiming),
+            "TransferFailed"
+        );
+
+        // Reset user votes after claiming
+        user_votes[msg.sender][market_id][Votes.YES] = 0;
+        user_votes[msg.sender][market_id][Votes.NO] = 0;
     }
 }
